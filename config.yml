@@ -1,0 +1,41 @@
+version: '2.1'
+orbs:
+  aws-cli: circleci/aws-cli@4.0
+  aws-ecr: circleci/aws-ecr@9.0
+jobs:
+  build-test-then-push-with-buildx:
+    machine:
+      image: ubuntu-2204:2022.07.1
+    steps:
+      - aws-ecr/build_and_push_image:
+          attach_workspace: true
+          auth:
+            - aws-cli/setup:
+                role_arn: arn:aws:iam::123456789012
+          create_repo: true
+          dockerfile: Dockerfile
+          path: workspace
+          platform: linux/amd64
+          push_image: false
+          region: eu-west-3
+          repo: my-sample-repo
+          tag: sampleTag
+          workspace_root: .
+      - run:
+          command: >
+            set -x
+
+            docker run 123456789012.dkr.ecr.eu-west-3.amazonaws.com/<<
+            parameters.repo >>:<< parameters.tag >> ping -V
+
+            status=$(echo "$?")
+
+            if [ "${status}" != "0" ]; then exit 1; else exit 0; fi
+
+            set +x
+          name: Tests for docker image
+      - aws-ecr/push_image:
+          region: << parameters.region >>
+          repo: << parameters.repo >>
+          tag: << parameters.tag >>
+workflows: null
